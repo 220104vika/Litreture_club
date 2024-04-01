@@ -50,7 +50,7 @@ def get_code(message):
         bot.reply_to(message, "Введите код!")
 
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_matt(func=lambda message: True)
 def send_mess(message):
     bot.send_audio(message.chat.id, audio=open(audio_aron, 'rb'))
     bot.send_message(message.chat.id, 'Бланк....')
