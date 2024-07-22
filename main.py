@@ -1,4 +1,4 @@
-#  Подключение библиотеки
+# Подключение библиотеки
 import telebot
 import sqlite3
 import time
@@ -50,13 +50,12 @@ current_state = None
 @bot.message_handler(commands=['start'])
 def say_hi(message):
     global current_state
-    conn = sqlite3.connect('telebot.db')
-    cursor = conn.cursor()
     bot.send_message(message.chat.id, 'Здравствуйте. Вы попали в секретный архив Полицейского участка. Напоминанием о правилах пользования!\n \n1. На протяжении расследования мы будем с вами связываться. Ищите подсказки вокруг, внимательно расследуйсте преступления, а только потом связывайтесь с нами. \n \n2. На все ответы нам у вас есть только ОДНА возможность ответить. \n \n Похоже кто-то оставил диктофон с записью.')
     bot.send_audio(message.chat.id, audio=open(audio_aron, 'rb'))
     current_state = State.WAITING_CODE
     time.sleep(60)
     bot.send_message(message.chat.id, 'Прежде чем ввести код в сейф, отправьте его нам! \n На нем стоит защита от перебора комбинаций, Саманта не любит, когда лезут в ее дела.')
+    logging.info(f"Пользователь {message.chat.id} на этапе WAITING_CODE")
 
 
 @bot.message_handler(func=lambda message: current_state == State.WAITING_CODE)
@@ -65,11 +64,14 @@ def get_code(message):
     try:
         number = int(message.text)
         if number == 8616:
+            current_state = State.WAITING_ANS
+            logging.info(f"Пользователь {message.chat.id} на этапе WAITING_ANS")
             bot.reply_to(message, "Этот код верный! Продолжайте свое расследование")
             time.sleep(120)
             send_blank(message)
         else:
             bot.reply_to(message, "Неверный код!")
+
     except ValueError:
         bot.reply_to(message, "Введите код!")
 
@@ -95,27 +97,33 @@ current_question_index = 0
 
 def ask_questions(message):
     global current_question_index
-    global current_state
+    # global current_state
     bot.send_message(message.chat.id, "Ответьте на вопросы основываясь на материалах дел. Имейте в виду, что на каждый вопрос есть только одна попытка. После отправки сообщения невозможно изменить ответ или ответить повторно.")
     bot.send_message(message.chat.id, questions[current_question_index])
-    current_state = State.WAITING_ANS
+    # current_state = State.WAITING_ANS
 
 
 @bot.message_handler(func=lambda message: current_state == State.WAITING_ANS)
 def handler_ans(message):
     global current_state
     global current_question_index
+
     if current_question_index < len(questions):
         user_answers.append(message.text)
         current_question_index += 1
+
         if current_question_index < len(questions):
             bot.send_message(message.chat.id, questions[current_question_index])
+
         else:
+            logging.info(f"Пользователь {message.chat.id} на этапе Отправили все ответы")
             bot.send_message(message.chat.id, "Обрабатываем данные.")
             time.sleep(5)
             response = "Ваши ответы:\n" + "\n".join(user_answers) + "\n\nОтветы нашего отдела после некоторых правок:\n"
+
             for i in range(len(correct_answers)):
                 response += f"{questions[i]} - {correct_answers[i]}\n\n"
+
             bot.send_message(message.chat.id, response, parse_mode="Markdown")
             current_state = State.WAITING_PASSWORD
             user_answers.clear()
@@ -144,11 +152,14 @@ def get_new_code(message):
 def handler_mess_2(message):
     global current_question_index_2
     global current_state
+
     if current_question_index_2 < len(questions_2):
         user_answers.append(message.text)
         current_question_index_2 += 1
+
         if current_question_index_2 < len(questions_2):
             bot.send_message(message.chat.id, questions_2[current_question_index_2])
+            
         else:
             bot.send_message(message.chat.id, "Обрабатываем данные.")
             time.sleep(5)
@@ -157,6 +168,7 @@ def handler_mess_2(message):
                 response += f"{questions_2[i]} - {correct_answers_2[i]}\n\n"
             bot.send_message(message.chat.id, response, parse_mode="Markdown")
             user_answers.clear()
+
     bot.send_audio(message.chat.id, audio=open(audio_samantha, 'rb'))
 
 bot.infinity_polling()
